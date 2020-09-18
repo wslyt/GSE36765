@@ -1,0 +1,62 @@
+library(KEGGREST)
+gs<-keggGet('hsa00740')
+gs[[1]]$GENE 
+#查找所有基因 
+genes<-unlist(lapply(gs[[1]]$GENE,function(x) strsplit(x,';'))) 
+genelist1 <- genes[1:length(genes)%%3 ==2] 
+genelist1 <- data.frame(genelist1)  
+
+
+a= read.table("GSE36765.csv",
+                sep=",",quote = "",fill=T,header = T)
+rownames(a)=a[,1]
+exprSet2=data.frame(a[,2:5],a[,26:35])
+group_list=c(rep('Donor',4),rep('TIL',10))
+group_list <- factor(group_list,levels = c("Donor","TIL"),ordered = F)
+design <- model.matrix(~0+factor(group_list))
+colnames(design)=levels(factor(group_list))
+contrast.matrix<-makeContrasts("TIL-Donor",levels = design)
+rownames(design)=colnames(exprSet2)
+fit=lmFit(exprSet2,design)
+fit2 <- contrasts.fit(fit, contrast.matrix) 
+fit=eBayes(fit2) 
+allDiff=topTable(fit,adjust='fdr',number=Inf,p.value=0.05) 
+allDiff$genes=rownames(allDiff)
+
+####
+rownames(a)=a[,1]
+a1=data.frame(t(a))
+a1=a1[-1,]
+y <- as.numeric(a1[,"ACP5"])
+colnames <- colnames(a1)
+cor_data_df <- data.frame(colnames)
+for (i in 1:length(colnames)){
+  test <- cor.test(as.numeric(a1[,i]),y,type="spearman")
+  cor_data_df[i,2] <- test$estimate
+  cor_data_df[i,3] <- test$p.value
+}
+names(cor_data_df) <- c("symbol","correlation","pvalue")
+a1$ACP5=as.numeric(a1$ACP5)
+a1$IL18=as.numeric(a1$IL18)
+library(ggstatsplot)
+ggscatterstats(data = a1,
+               y = ACP5,
+               x = IL18,
+               centrality.para = "mean",
+               margins = "both",
+               xfill = "#CC79A7",
+               yfill = "#009E73",
+               marginal.type = "histogram",
+               title = "Relationship between ACP5 and IL18")
+write.table(cor_data_df,file="cor_data_df.csv",row.names = T,col.names = T, quote=T)
+
+
+y1 <- as.numeric(a1[,"IL18"])
+colnames1 <- colnames(a1)
+cor_data_df1 <- data.frame(colnames1)
+for (i in 1:length(colnames1)){
+  test <- cor.test(as.numeric(a1[,i]),y1,type="spearman")
+  cor_data_df1[i,2] <- test$estimate
+  cor_data_df1[i,3] <- test$p.value
+}
+names(cor_data_df1) <- c("symbol","correlation","pvalue")
